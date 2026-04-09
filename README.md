@@ -2,7 +2,7 @@
 RTL design of I²C slave and programmable digital sequencer for biomedical SoC applications
 
 Context
-This project was built during an internship on a mixed-signal biosensor IC targeting early cardiac event detection. The chip optically measures blood-oxygen (SpO₂) and heart-rate signals (PPG) at 760 nm. The digital domain I designed enables the host MCU to configure the entire analog front end through a single I2C bus LED drive currents, integration windows, ADC timing, and interrupt masking — without any dedicated firmware running on-chip.
+This project was built during an internship on a mixed-signal biosensor IC targeting early cardiac event detection. The chip optically measures blood-oxygen (SpO₂) and heart-rate signals (PPG) at 760 nm. The digital domain I designed enables the host MCU to configure the entire analog front end through a single I2C bus LED drive currents, integration windows, ADC timing, and interrupt masking without any dedicated firmware running on-chip.
 
 The target application is a wearable patch that monitors continuously and alerts the patient (or caregiver) before a cardiac event escalates, giving time to seek treatment.
 
@@ -47,7 +47,7 @@ States:
 
 <img width="723" height="600" alt="Image" src="https://github.com/user-attachments/assets/2aac75b8-0e24-4e91-9463-909932dd334f" />
 
-StateWhat it doesIDLEBus idle. SDA released. Waits for START condition.GET_ADDRShifts in 7-bit address + R/W bit on each SCL rise.SEND_ACKAsserts ACK on SDA (SCL fall 1), releases (fall 2). Forks to WRITE or READ.NACKAddress mismatch. Releases SDA, waits for STOP.GET_WAShifts in 8-bit register word address.SEND_WA_ACKACKs the word address. Arms register read pointer.RX_DATAShifts in data byte on each SCL rise. Fires reg_wr_en pulse.SEND_DA_ACKACKs the data byte, loops back to RX_DATA (page write).TX_DATADrives bits 6–0 on SDA, one per SCL fall (bit 7 is pre-driven).WAIT_ACK_PREHolds bit 0 on SDA for its full clock cycle before releasing.WAIT_ACKSamples master ACK/NACK on SCL rise. Continues sequential read or exits.DONEMaster sent NACK read done. Waits for STOP.
+State What it does IDLEBus idle. SDA released. Waits for START condition.GET_ADDR Shifts in 7-bit address + R/W bit on each SCL rise.SEND_ACK Asserts ACK on SDA (SCL fall 1), releases (fall 2). Forks to WRITE or READ.NACK Address mismatch. Releases SDA, waits for STOP.GET_WA Shifts in 8-bit register word address.SEND_WA_ACKACKs the word address. Arms register read pointer.RX_DATA Shifts in data byte on each SCL rise. Fires reg_wr_en pulse.SEND_DA_ACKACKs the data byte, loops back to RX_DATA (page write).TX_DATA Drives bits 6–0 on SDA, one per SCL fall (bit 7 is pre-driven).WAIT_ACK_PRE Holds bit 0 on SDA for its full clock cycle before releasing.WAIT_ACK Samples master ACK/NACK on SCL rise. Continues sequential read or exits.DONE Master sent NACK read done. Waits for STOP.
 Global overrides (highest priority):
 
 Any i2c_stop → unconditionally returns to IDLE
