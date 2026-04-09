@@ -93,8 +93,9 @@ Expected: 0x0A (SEQ_PER)   →  Got: 0x82
 Expected: 0x02 (STATUS)    →  Got: 0x80
 Root cause: Three separate timing problems in TX_DATA:
 
-Bit 7 driven twice. At bitcnt=7, txreg was loaded from reg_rd_data and sda_oe was set to ~reg_rd_data[7]. At bitcnt=6, txreg[7] was still equal to reg_rd_data[7] (the shift hadn't happened yet in simulation time), so bit 7 was driven again for a second SCL clock cycle — consuming the slot meant for bit 6.
+Bit 7 driven twice. At bitcnt=7, txreg was loaded from reg_rd_data and sda_oe was set to ~reg_rd_data[7]. At bitcnt=6, txreg[7] was still equal to reg_rd_data[7] (the shift hadn't happened yet in simulation time), so bit 7 was driven again for a second SCL clock cycle consuming the slot meant for bit 6.
 Master samples pullup before slave drives SDA. The transition from SEND_ACK to TX_DATA happened on the same SCL fall that the testbench used as the recv_byte() trigger. The master raised SCL for its first sample before TX_DATA had seen any SCL fall to drive SDA. SDA was floating (pulled HIGH), so the master recorded 1 as the MSB.
+
 Bit 0 was never driven. At bitcnt=0, the original code released SDA and jumped straight to WAIT_ACK without ever asserting bit 0 on the bus.
 
 Fix: Three coordinated changes:
@@ -102,6 +103,7 @@ Fix: Three coordinated changes:
 On the second SCL fall of SEND_ACK (the READ fork), pre-drive bit 7 immediately: sda_oe <= ~reg_rd_data[7], load txreg <= {reg_rd_data[6:0], 1'b0} (pre-shifted), and set bitcnt <= 6. This means when the master raises SCL for the first time, bit 7 is already on the wire.
 TX_DATA now starts at bitcnt=6, so it drives bit 6 → bit 1 correctly.
 Added WAIT_ACK_PRE state: at bitcnt=0, drive bit 0 and go to WAIT_ACK_PRE. On the next SCL fall, release SDA for the master ACK. This guarantees bit 0 holds for its full clock.
+
 The same pre-drive pattern is applied in WAIT_ACK for sequential reads.
 
 
@@ -112,7 +114,7 @@ Fix: Added cycle_count <= cycle_count + 1 inside the cycle_end handler. Also add
 
 Bug 3 — TIA integrator de-asserted when sequencer was idle
 Symptom: itg_en went LOW whenever the sequencer wasn't running. Per the AS7038RB datasheet, the integrator is default-ON (start=1 means "begin integration", stop=0 means "always integrating").
-Root cause: The !running branch had itg_en <= 1'b0 — exactly backwards from the datasheet.
+Root cause: The !running branch had itg_en <= 1'b0 exactly backwards from the datasheet.
 Fix: Changed to itg_en <= 1'b1 in the idle branch.
 
 Bug 4 — ADC sample pulse only 20 ns wide
@@ -136,13 +138,13 @@ After the I2C configuration phase (the initial burst of SCL/SDA activity in the 
 
 <img width="1882" height="692" alt="Image" src="https://github.com/user-attachments/assets/73635c80-f7b3-4009-81af-ed0fe33cca69" />
 
-seq_running_o stays HIGH — the sequencer is active
+seq_running_o stays HIGH the sequencer is active
 itg_en_o pulses at the programmed SEQ_ITG_STA/STO times within each period
-led_drive_o and sdp1_o, sdm1_o, sdp2_o, sdm2_o fire in sync — LED on, drive currents on
+led_drive_o and sdp1_o, sdm1_o, sdp2_o, sdm2_o fire in sync LED on, drive currents on
 adc_sample_o fires once per period at the programmed step
-int_n_o pulses LOW periodically — the sequencer interrupt fires every cycle (continuous mode, SEQ_CNT = 0x00)
+int_n_o pulses LOW periodically the sequencer interrupt fires every cycle (continuous mode, SEQ_CNT = 0x00)
 seq_status_o shows 0x02 (irq_sequencer bit set)
-id_val reads back 0x21 (CHIP_ID) and rb_val reads back 0x0A (SEQ_PER) — confirming correct I2C reads
+id_val reads back 0x21 (CHIP_ID) and rb_val reads back 0x0A (SEQ_PER) confirming correct I2C reads
 
 Waveform 2 I2C timing zoom (25 µs view)
 The close-up shows the raw SCL/SDA bus during the initial configuration writes:
@@ -154,19 +156,6 @@ Each 9-clock burst is one byte (8 data bits + ACK)
 After each write, SDA returns to HIGH (released) ACK from the slave
 The repeating pattern confirms the page-write loop works correctly (sequential address auto-increment)
 
-
-File Structure
-├── rtl/
-│   ├── i2c_slave.sv          # I2C slave FSM (11 states)
-│   ├── register_file.sv      # Configuration register bank
-│   ├── sequencer.sv          # Hardware measurement sequencer
-│   ├── interrupt_ctrl.sv     # Sticky interrupt controller
-│   └── top_module.sv         # Integration top-level
-├── docs/
-│   ├── architecture.png      # System block diagram
-│   ├── i2c_fsm.png           # I2C slave FSM diagram
-│   └── waveform_*.png        # Simulation screenshots
-└── README.md
 
 Skills Demonstrated
 
